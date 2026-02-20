@@ -1,0 +1,54 @@
+{
+  "bot-account": {
+    "username": "ReStabledSMP",
+    "password": "",
+    "type": "offline"
+  },
+
+  "server": {
+    "ip": "ReStabledSMP.aternos.me",
+    "port":59146,
+    "version": "1.18.2"
+  },
+
+  "position": {
+    "enabled": false,
+    "x": 0,
+    "y": 0,
+    "z": 0
+  },
+
+  "utils": {
+    "auto-auth": {
+      "enabled": true,
+      "password": "yassinehzz$is$the$best" 
+    }, 
+
+    "anti-afk": {
+      "enabled": true,
+      "sneak": false
+    },
+
+    "chat-messages": {
+      "enabled": true,
+      "repeat": true,
+      "repeat-delay": 60,
+
+      "messages": [
+        "Hi",
+        "Hello",
+        "Hey",
+        "Hello there",
+        "Greetings",
+        "Good to see you",
+        "Nice to see you",
+        "Long time no see",
+        "How are you doing?"
+      ]
+    },
+
+    "chat-log": false,
+    "auto-reconnect": true,
+    "auto-reconnect-delay": 3000
+  }
+}
