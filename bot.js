@@ -4,7 +4,7 @@ const { pathfinder, Movements, goals } = require("mineflayer-pathfinder");
 const { GoalBlock } = goals;
 const config = require("./settings.json");
 
-// ---------- Web Server (Render keep-alive) ----------
+// ---------- Web Server (Render keep-alive) ---------
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 app.listen(3000, () => console.log("Web server started"));
