@@ -48,12 +48,7 @@
     },
 
     "chat-log": false,
-
-    // 🔽 These are mostly handled in bot.js now,
-    // but keep them for clarity
     "auto-reconnect": true,
-
-    // 🔽 Aternos-safe reconnect delay
     "auto-reconnect-delay": 20000
   }
 }
