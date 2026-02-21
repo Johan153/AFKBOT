@@ -34,15 +34,7 @@
       "repeat": true,
       "repeat-delay": 60,
       "messages": [
-        "Hi",
-        "Hello",
-        "Hey",
-        "Hello there",
-        "Greetings",
-        "Good to see you",
-        "Nice to see you",
-        "Long time no see",
-        "How are you doing?"
+        ""
       ]
     },
 
