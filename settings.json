@@ -26,29 +26,28 @@
 
     "anti-afk": {
       "enabled": true,
-      "sneak": true
+      "sneak": false
     },
 
     "chat-messages": {
       "enabled": true,
-
-      // 🔽 IMPORTANT: prevents spam detection
       "repeat": true,
-      "repeat-delay": 180,
-
+      "repeat-delay": 60,
       "messages": [
         "Hi",
         "Hello",
         "Hey",
         "Hello there",
         "Greetings",
+        "Good to see you",
         "Nice to see you",
-        "Long time no see"
+        "Long time no see",
+        "How are you doing?"
       ]
     },
 
     "chat-log": false,
     "auto-reconnect": true,
-    "auto-reconnect-delay": 20000
+    "auto-reconnect-delay": 10000
   }
 }
