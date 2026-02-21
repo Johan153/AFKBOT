@@ -7,7 +7,7 @@
 
   "server": {
     "ip": "ReStabledSMP.aternos.me",
-    "port":59146,
+    "port": 59146,
     "version": "1.18.2"
   },
 
@@ -21,18 +21,20 @@
   "utils": {
     "auto-auth": {
       "enabled": true,
-      "password": "yassinehzz$is$the$best" 
-    }, 
+      "password": "yassinehzz$is$the$best"
+    },
 
     "anti-afk": {
       "enabled": true,
-      "sneak": false
+      "sneak": true
     },
 
     "chat-messages": {
       "enabled": true,
+
+      // 🔽 IMPORTANT: prevents spam detection
       "repeat": true,
-      "repeat-delay": 60,
+      "repeat-delay": 180,
 
       "messages": [
         "Hi",
@@ -40,15 +42,18 @@
         "Hey",
         "Hello there",
         "Greetings",
-        "Good to see you",
         "Nice to see you",
-        "Long time no see",
-        "How are you doing?"
+        "Long time no see"
       ]
     },
 
     "chat-log": false,
+
+    // 🔽 These are mostly handled in bot.js now,
+    // but keep them for clarity
     "auto-reconnect": true,
-    "auto-reconnect-delay": 10000
+
+    // 🔽 Aternos-safe reconnect delay
+    "auto-reconnect-delay": 20000
   }
 }
