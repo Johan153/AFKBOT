@@ -4,14 +4,38 @@ const { pathfinder, Movements, goals } = require("mineflayer-pathfinder");
 const { GoalBlock } = goals;
 const config = require("./settings.json");
 
-// ---------- Keep Replit alive ----------
+// ---------- Web Server (Render keep-alive) ----------
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 app.listen(3000, () => console.log("Web server started"));
 
+// ---------- Reconnect Control ----------
+let reconnectDelay = 20000; // start 20s (important for Aternos)
+const MAX_DELAY = 120000;   // max 2 minutes
+let bot = null;
+
+// ---------- Helpers ----------
+function scheduleReconnect(reason = "unknown") {
+	console.log(`⚠️ Disconnected → ${reason}`);
+	console.log(`⏱ Reconnecting in ${reconnectDelay / 1000}s...`);
+
+	setTimeout(() => {
+		reconnectDelay = Math.min(reconnectDelay * 1.5, MAX_DELAY);
+		createBot();
+	}, reconnectDelay);
+}
+
+function resetReconnectDelay() {
+	reconnectDelay = 20000;
+}
+
 // ---------- Create Bot ----------
 function createBot() {
-	const bot = mineflayer.createBot({
+	if (bot) {
+		try { bot.removeAllListeners(); bot.quit(); } catch {}
+	}
+
+	bot = mineflayer.createBot({
 		username: config["bot-account"].username,
 		password: config["bot-account"].password,
 		auth: config["bot-account"].type,
@@ -22,16 +46,26 @@ function createBot() {
 
 	bot.loadPlugin(pathfinder);
 
+	let antiAfkInterval = null;
+	let chatInterval = null;
+	let loginSent = false;
+
+	// ---------- Spawn ----------
 	bot.once("spawn", () => {
 		console.log("✅ Bot joined server");
+		resetReconnectDelay();
 
-		// ---------- Auto-Auth ----------
+		// ---------- Auto Login ONLY ----------
 		if (config.utils["auto-auth"].enabled) {
 			const password = config.utils["auto-auth"].password;
+
 			setTimeout(() => {
-				bot.chat(`/register ${password} ${password}`);
-				bot.chat(`/login ${password}`);
-			}, 500);
+				if (!loginSent) {
+					bot.chat(`/login ${password}`);
+					loginSent = true;
+					console.log("🔐 Login sent");
+				}
+			}, 3000);
 		}
 
 		// ---------- Chat Messages ----------
@@ -40,9 +74,10 @@ function createBot() {
 			const delay = config.utils["chat-messages"]["repeat-delay"] * 1000;
 
 			if (config.utils["chat-messages"].repeat) {
-				setInterval(() => {
+				chatInterval = setInterval(() => {
+					if (!bot.entity) return;
 					const msg = msgs[Math.floor(Math.random() * msgs.length)];
-					if (bot.entity) bot.chat(msg);
+					bot.chat(msg);
 				}, delay);
 			} else {
 				msgs.forEach(m => bot.chat(m));
@@ -61,7 +96,7 @@ function createBot() {
 
 		// ---------- Anti-AFK ----------
 		if (config.utils["anti-afk"].enabled) {
-			setInterval(() => {
+			antiAfkInterval = setInterval(() => {
 				if (!bot.entity) return;
 
 				const yaw = Math.random() * Math.PI * 2;
@@ -69,40 +104,49 @@ function createBot() {
 				bot.look(yaw, pitch);
 
 				bot.setControlState("jump", true);
-				setTimeout(() => bot.setControlState("jump", false), 500);
+				setTimeout(() => bot.setControlState("jump", false), 400);
 
 				if (config.utils["anti-afk"].sneak) {
 					bot.setControlState("sneak", true);
-					setTimeout(() => bot.setControlState("sneak", false), 1000);
+					setTimeout(() => bot.setControlState("sneak", false), 800);
 				}
 			}, 30000);
 		}
 	});
 
-	// ---------- Handle Disconnects ----------
+	// ---------- Cleanup ----------
+	function cleanup() {
+		if (antiAfkInterval) clearInterval(antiAfkInterval);
+		if (chatInterval) clearInterval(chatInterval);
+	}
+
+	// ---------- Disconnect Handling ----------
 	bot.on("end", (reason) => {
-		console.log(`⚠️ Bot disconnected: ${reason || "Unknown reason"}`);
-		if (config.utils["auto-reconnect"]) {
-			const delay = config.utils["auto-reconnect-delay"] || 5000;
-			console.log(`⏱ Reconnecting in ${delay}ms...`);
-			setTimeout(createBot, delay);
-		}
+		cleanup();
+		scheduleReconnect(reason);
 	});
 
 	bot.on("kicked", (reason) => {
+		cleanup();
 		console.log(`❌ Kicked: ${reason}`);
-		// If LoginSecurity or already online, retry quickly
-		if (reason.includes("already online") || reason.includes("LoginSecurity")) {
-			console.log("⚡ Retry connecting in 3s due to LoginSecurity");
-			setTimeout(createBot, 3000);
+
+		const msg = reason.toString().toLowerCase();
+
+		if (msg.includes("already online") || msg.includes("loginsecurity")) {
+			reconnectDelay = Math.max(reconnectDelay, 30000);
 		}
+
+		if (msg.includes("throttled")) {
+			reconnectDelay = Math.max(reconnectDelay, 60000);
+		}
+
+		scheduleReconnect(reason);
 	});
 
 	bot.on("error", (err) => {
 		console.log(`❌ Error: ${err.message}`);
 	});
 
-	// Optional: log messages from the server
 	bot.on("message", (msg) => {
 		console.log(`[Server] ${msg.toString()}`);
 	});
@@ -111,12 +155,13 @@ function createBot() {
 // ---------- Crash Protection ----------
 process.on("uncaughtException", (err) => {
 	console.log("⚠️ Uncaught Exception:", err.message);
-	createBot();
-});
-process.on("unhandledRejection", (err) => {
-	console.log("⚠️ Unhandled Rejection:", err);
-	createBot();
+	scheduleReconnect("uncaughtException");
 });
 
-// ---------- Start Bot ----------
+process.on("unhandledRejection", (err) => {
+	console.log("⚠️ Unhandled Rejection:", err);
+	scheduleReconnect("unhandledRejection");
+});
+
+// ---------- Start ----------
 createBot();
