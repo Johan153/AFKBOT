@@ -32,9 +32,12 @@
     "chat-messages": {
       "enabled": true,
       "repeat": true,
-      "repeat-delay": 60,
+      "repeat-delay": 180,
       "messages": [
-        ""
+        "Welcome to ReStabledSMP",
+        "Hi",
+        "hello",
+        "Welcome",
       ]
     },
 
