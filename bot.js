@@ -4,17 +4,38 @@ const { pathfinder, Movements, goals } = require("mineflayer-pathfinder");
 const { GoalBlock } = goals;
 const config = require("./settings.json");
 
-// ---------- Web Server (Render keep-alive) ---------
+// ---------- Web Server ----------
 const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 app.listen(3000, () => console.log("Web server started"));
 
 // ---------- Reconnect Control ----------
-let reconnectDelay = 20000; // start 20s (important for Aternos)
-const MAX_DELAY = 120000;   // max 2 minutes
+let reconnectDelay = 20000;
+const MAX_DELAY = 120000;
 let bot = null;
 
+// ---------- Message Pools ----------
+const WELCOME_MESSAGES = [
+	"Hello 👋",
+	"Hi there!",
+	"Welcome!",
+	"Hey!",
+	"Good to see you!"
+];
+
+const BYE_MESSAGES = [
+	"Bye 👋",
+	"See you later!",
+	"Goodbye!",
+	"Take care!",
+	"Catch you later!"
+];
+
 // ---------- Helpers ----------
+function random(arr) {
+	return arr[Math.floor(Math.random() * arr.length)];
+}
+
 function scheduleReconnect(reason = "unknown") {
 	console.log(`⚠️ Disconnected → ${reason}`);
 	console.log(`⏱ Reconnecting in ${reconnectDelay / 1000}s...`);
@@ -47,44 +68,53 @@ function createBot() {
 	bot.loadPlugin(pathfinder);
 
 	let antiAfkInterval = null;
-	let chatInterval = null;
+	let soloChatInterval = null;
 	let loginSent = false;
+
+	function otherPlayersOnline() {
+		return Object.keys(bot.players).filter(p => p !== bot.username).length > 0;
+	}
+
+	function startSoloChat() {
+		if (soloChatInterval) return;
+
+		const msgs = config.utils["chat-messages"].messages;
+		const delay = config.utils["chat-messages"]["repeat-delay"] * 1000;
+
+		soloChatInterval = setInterval(() => {
+			if (!bot.entity) return;
+			if (!otherPlayersOnline()) {
+				bot.chat(random(msgs));
+			}
+		}, delay);
+	}
+
+	function stopSoloChat() {
+		if (soloChatInterval) {
+			clearInterval(soloChatInterval);
+			soloChatInterval = null;
+		}
+	}
 
 	// ---------- Spawn ----------
 	bot.once("spawn", () => {
 		console.log("✅ Bot joined server");
 		resetReconnectDelay();
 
-		// ---------- Auto Login ONLY ----------
+		// Login
 		if (config.utils["auto-auth"].enabled) {
 			const password = config.utils["auto-auth"].password;
-
 			setTimeout(() => {
 				if (!loginSent) {
 					bot.chat(`/login ${password}`);
 					loginSent = true;
-					console.log("🔐 Login sent");
 				}
 			}, 3000);
 		}
 
-		// ---------- Chat Messages ----------
-		if (config.utils["chat-messages"].enabled) {
-			const msgs = config.utils["chat-messages"].messages;
-			const delay = config.utils["chat-messages"]["repeat-delay"] * 1000;
+		startSoloChat();
 
-			if (config.utils["chat-messages"].repeat) {
-				chatInterval = setInterval(() => {
-					if (!bot.entity) return;
-					const msg = msgs[Math.floor(Math.random() * msgs.length)];
-					bot.chat(msg);
-				}, delay);
-			} else {
-				msgs.forEach(m => bot.chat(m));
-			}
-		}
-
-		// ---------- Move to Position ----------
+		// Move to position
 		if (config.position.enabled) {
 			const mcData = require("minecraft-data")(bot.version);
 			const movements = new Movements(bot, mcData);
@@ -94,7 +124,7 @@ function createBot() {
 			);
 		}
 
-		// ---------- Anti-AFK ----------
+		// Anti AFK
 		if (config.utils["anti-afk"].enabled) {
 			antiAfkInterval = setInterval(() => {
 				if (!bot.entity) return;
@@ -114,10 +144,33 @@ function createBot() {
 		}
 	});
 
+	// ---------- Player Join ----------
+	bot.on("playerJoined", (player) => {
+		if (player.username === bot.username) return;
+
+		stopSoloChat();
+		setTimeout(() => {
+			bot.chat(random(WELCOME_MESSAGES));
+		}, 2000);
+	});
+
+	// ---------- Player Leave ----------
+	bot.on("playerLeft", (player) => {
+		if (player.username === bot.username) return;
+
+		setTimeout(() => {
+			bot.chat(random(BYE_MESSAGES));
+		}, 1000);
+
+		setTimeout(() => {
+			if (!otherPlayersOnline()) startSoloChat();
+		}, 5000);
+	});
+
 	// ---------- Cleanup ----------
 	function cleanup() {
 		if (antiAfkInterval) clearInterval(antiAfkInterval);
-		if (chatInterval) clearInterval(chatInterval);
+		stopSoloChat();
 	}
 
 	// ---------- Disconnect Handling ----------
@@ -131,11 +184,9 @@ function createBot() {
 		console.log(`❌ Kicked: ${reason}`);
 
 		const msg = reason.toString().toLowerCase();
-
 		if (msg.includes("already online") || msg.includes("loginsecurity")) {
 			reconnectDelay = Math.max(reconnectDelay, 30000);
 		}
-
 		if (msg.includes("throttled")) {
 			reconnectDelay = Math.max(reconnectDelay, 60000);
 		}
@@ -145,10 +196,6 @@ function createBot() {
 
 	bot.on("error", (err) => {
 		console.log(`❌ Error: ${err.message}`);
-	});
-
-	bot.on("message", (msg) => {
-		console.log(`[Server] ${msg.toString()}`);
 	});
 }
 
