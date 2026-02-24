@@ -9,9 +9,9 @@ const app = express();
 app.get("/", (req, res) => res.send("Bot is running"));
 app.listen(3000, () => console.log("Web server started"));
 
-// ---------- Reconnect Control (Aternos-safe) ----------
-let reconnectDelay = 60000; // start 60s
-const MAX_DELAY = 300000;   // max 5 minutes
+// ---------- Reconnect Control ----------
+let reconnectDelay = 20000;
+const MAX_DELAY = 120000;
 let bot = null;
 
 // ---------- Message Pools ----------
@@ -38,7 +38,7 @@ function random(arr) {
 
 function scheduleReconnect(reason = "unknown") {
 	console.log(`⚠️ Disconnected → ${reason}`);
-	console.log(`⏱ Reconnecting in ${Math.round(reconnectDelay / 1000)}s...`);
+	console.log(`⏱ Reconnecting in ${reconnectDelay / 1000}s...`);
 
 	setTimeout(() => {
 		reconnectDelay = Math.min(reconnectDelay * 1.5, MAX_DELAY);
@@ -47,16 +47,13 @@ function scheduleReconnect(reason = "unknown") {
 }
 
 function resetReconnectDelay() {
-	reconnectDelay = 60000;
+	reconnectDelay = 20000;
 }
 
 // ---------- Create Bot ----------
 function createBot() {
 	if (bot) {
-		try {
-			bot.removeAllListeners();
-			bot.quit();
-		} catch {}
+		try { bot.removeAllListeners(); bot.quit(); } catch {}
 	}
 
 	bot = mineflayer.createBot({
@@ -65,8 +62,7 @@ function createBot() {
 		auth: config["bot-account"].type,
 		host: config.server.ip,
 		port: config.server.port,
-		version: config.server.version,
-		keepAlive: true
+		version: config.server.version
 	});
 
 	bot.loadPlugin(pathfinder);
@@ -105,17 +101,15 @@ function createBot() {
 		console.log("✅ Bot joined server");
 		resetReconnectDelay();
 
-		// Delay login (important for Aternos)
+		// Login
 		if (config.utils["auto-auth"].enabled) {
 			const password = config.utils["auto-auth"].password;
-
 			setTimeout(() => {
 				if (!loginSent) {
 					bot.chat(`/login ${password}`);
 					loginSent = true;
-					console.log("🔐 Login sent");
 				}
-			}, 8000);
+			}, 3000);
 		}
 
 		startSoloChat();
@@ -157,7 +151,7 @@ function createBot() {
 		stopSoloChat();
 		setTimeout(() => {
 			bot.chat(random(WELCOME_MESSAGES));
-		}, 3000);
+		}, 2000);
 	});
 
 	// ---------- Player Leave ----------
@@ -166,11 +160,11 @@ function createBot() {
 
 		setTimeout(() => {
 			bot.chat(random(BYE_MESSAGES));
-		}, 2000);
+		}, 1000);
 
 		setTimeout(() => {
 			if (!otherPlayersOnline()) startSoloChat();
-		}, 8000);
+		}, 5000);
 	});
 
 	// ---------- Cleanup ----------
@@ -178,12 +172,6 @@ function createBot() {
 		if (antiAfkInterval) clearInterval(antiAfkInterval);
 		stopSoloChat();
 	}
-
-	// ---------- Connection Guard ----------
-	bot._client.on("timeout", () => {
-		console.log("❌ Connection timeout");
-		bot.end();
-	});
 
 	// ---------- Disconnect Handling ----------
 	bot.on("end", (reason) => {
@@ -196,13 +184,11 @@ function createBot() {
 		console.log(`❌ Kicked: ${reason}`);
 
 		const msg = reason.toString().toLowerCase();
-
-		if (msg.includes("already online")) {
-			reconnectDelay = Math.max(reconnectDelay, 90000);
+		if (msg.includes("already online") || msg.includes("loginsecurity")) {
+			reconnectDelay = Math.max(reconnectDelay, 30000);
 		}
-
 		if (msg.includes("throttled")) {
-			reconnectDelay = Math.max(reconnectDelay, 120000);
+			reconnectDelay = Math.max(reconnectDelay, 60000);
 		}
 
 		scheduleReconnect(reason);
